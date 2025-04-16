@@ -1,3 +1,4 @@
+cmake_minimum_required(VERSION 3.28)
 project(experiments-ref-count)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -8,9 +9,6 @@ if(NOT CMAKE_BUILD_TYPE)
 set(CMAKE_BUILD_TYPE "RelWithDebInfo")
 endif()
 
-
-# Find nanobench package
-find_package(nanobench REQUIRED)
 
 # Add your executable
 add_executable(experiments-ref-count src/main.cpp)
