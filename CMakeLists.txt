@@ -17,3 +17,5 @@ add_executable(experiments-ref-count src/main.cpp)
 
 # Link nanobench to your executable
 target_link_libraries(experiments-ref-count PRIVATE nanobench)
+
+add_subdirectory(external)
