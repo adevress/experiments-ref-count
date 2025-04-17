@@ -3,7 +3,8 @@
 #include <stdexcept>
 #include <cassert>
 
-#include <boost/shared_ptr.hpp>
+#include <boost/smart_ptr/shared_ptr.hpp>
+#include <boost/smart_ptr/local_shared_ptr.hpp>
 
 #include <fmt/format.h>
 
@@ -11,13 +12,12 @@
 
 
 using under_type = int;
-
+constexpr std::size_t iterations = 1000000;
 
 
 std::size_t  run_bench_raw_ptr(under_type val){
     std::size_t res = 0;
     ankerl::nanobench::Bench bench;
-    constexpr std::size_t iterations = 1000000;
 
     {
         std::vector<under_type*> ptr_space;
@@ -48,7 +48,6 @@ std::size_t  run_bench_raw_ptr(under_type val){
 std::size_t run_bench_shared_ptr(under_type val){
     std::size_t res = 0;
     ankerl::nanobench::Bench bench;
-    constexpr std::size_t iterations = 1000000;
 
     {
         
@@ -56,10 +55,10 @@ std::size_t run_bench_shared_ptr(under_type val){
         ptr_space.resize(iterations);
 
         bench
-            .minEpochIterations(100)
-            .run("shared ptr", [&]() {
+            .minEpochIterations(20)
+            .run("atomic shared ptr", [&]() {
 
-            std::shared_ptr<int> ptr = std::make_shared<under_type>(val++);                
+            std::shared_ptr<int> ptr(new int{val++});                 
 
             for (std::size_t i = 0; i < iterations; ++i) {
                 ptr_space[i] = ptr;              
@@ -80,7 +79,6 @@ std::size_t run_bench_shared_ptr(under_type val){
 std::size_t run_bench_boost_shared_ptr(under_type val){
     std::size_t res = 0;
     ankerl::nanobench::Bench bench;
-    constexpr std::size_t iterations = 1000000;
 
     {
         
@@ -89,7 +87,7 @@ std::size_t run_bench_boost_shared_ptr(under_type val){
 
         bench
             .minEpochIterations(100)
-            .run("boost shared ptr", [&]() {
+            .run("atomic boost shared ptr", [&]() {
 
                 boost::shared_ptr<int> ptr(new int{val++});                
 
@@ -108,6 +106,38 @@ std::size_t run_bench_boost_shared_ptr(under_type val){
     return res;
 }
 
+std::size_t run_bench_boost_local_ptr(under_type val){
+    std::size_t res = 0;
+    ankerl::nanobench::Bench bench;
+
+    {
+        
+        std::vector<boost::local_shared_ptr<under_type>> ptr_space;
+        ptr_space.resize(iterations);
+
+        bench
+            .minEpochIterations(20)
+            .run("non-atomic boost shared ptr", [&]() {
+
+                boost::local_shared_ptr<int> ptr(new int{val++});                
+
+            for (std::size_t i = 0; i < iterations; ++i) {
+                ptr_space[i] = ptr;              
+            }
+
+        });
+
+        for(const auto & v : ptr_space){
+            res += *v;            
+        }    
+
+    }
+
+    return res;
+}
+
+
+
 int main() {
     std::size_t res = 0;
     ankerl::nanobench::Rng rng;
@@ -119,7 +149,8 @@ int main() {
     std::thread runner([&res, init_value](){
         res += run_bench_boost_shared_ptr(init_value);        
         res += run_bench_shared_ptr(init_value);
-        res += run_bench_raw_ptr(init_value);
+        res += run_bench_boost_local_ptr(init_value);
+        res += run_bench_raw_ptr(init_value);      
     });
 
     runner.join();
