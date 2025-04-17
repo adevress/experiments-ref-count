@@ -9,11 +9,12 @@ if(NOT CMAKE_BUILD_TYPE)
 set(CMAKE_BUILD_TYPE "RelWithDebInfo")
 endif()
 
+include(FindThreads)
 
 # Add your executable
 add_executable(experiments-ref-count src/main.cpp)
 
 # Link nanobench to your executable
-target_link_libraries(experiments-ref-count PRIVATE nanobench)
+target_link_libraries(experiments-ref-count PRIVATE nanobench Threads::Threads fmt)
 
 add_subdirectory(external)

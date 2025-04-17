@@ -1,15 +1,97 @@
 #include <memory>
+#include <thread>
+#include <stdexcept>
+#include <cassert>
+#include <fmt/format.h>
 #include "nanobench.h"
 
-int main() {
+
+using under_type = int;
+
+
+
+std::size_t  run_bench_raw_ptr(under_type val){
+    std::size_t res = 0;
     ankerl::nanobench::Bench bench;
-    
-    bench.run("shared_ptr_incr", [] {
-        std::shared_ptr<int> ptr = std::make_shared<int>(42);
-        for (int i = 0; i < 1000000; ++i) {
-            ptr = std::make_shared<int>(*ptr);
-        }
+    constexpr std::size_t iterations = 1000000;
+
+    {
+        std::vector<under_type*> ptr_space;
+        ptr_space.resize(iterations);
+
+        bench
+            .minEpochIterations(100)
+            .run("raw ptr", [&]() {
+
+            int*  ptr = new under_type{val++};        
+
+            for (std::size_t i = 0; i < iterations; ++i) {
+                ptr_space[i] = ptr;              
+            }
+
+        });
+
+        
+        for(std::size_t i = 0; i < iterations; ++i){
+            res += * ptr_space[i];
+        }    
+
+    }
+    return res;
+
+}
+
+
+
+
+std::size_t run_bench_shared_ptr(under_type val){
+    std::size_t res = 0;
+    ankerl::nanobench::Bench bench;
+    constexpr std::size_t iterations = 1000000;
+
+    {
+        
+        std::vector<std::shared_ptr<under_type>> ptr_space;
+        ptr_space.resize(iterations);
+
+        bench
+            .minEpochIterations(100)
+            .run("shared_ptr_incr", [&]() {
+
+            std::shared_ptr<int> ptr = std::make_shared<under_type>(val++);                
+
+            for (std::size_t i = 0; i < iterations; ++i) {
+                ptr_space[i] = ptr;              
+            }
+
+        });
+
+        for(const auto & v : ptr_space){
+            res += *v;            
+        }    
+
+    }
+
+    return res;
+}
+
+
+int main() {
+    std::size_t res = 0;
+    ankerl::nanobench::Rng rng;
+    const under_type init_value = rng();
+
+    // force the execution in a separated thread to
+    // avoid any side effect related to the stripping 
+    // of atomic ops in single threaded programs
+    std::thread runner([&res, init_value](){
+        res += run_bench_shared_ptr(init_value);
+        res += run_bench_raw_ptr(init_value);
     });
+
+    runner.join();
+
+    fmt::print("optimizer bypass val {0}\n", res);
 
     return 0;
 }
