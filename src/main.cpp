@@ -117,9 +117,9 @@ int main() {
     // avoid any side effect related to the stripping 
     // of atomic ops in single threaded programs
     std::thread runner([&res, init_value](){
+        res += run_bench_boost_shared_ptr(init_value);        
         res += run_bench_shared_ptr(init_value);
         res += run_bench_raw_ptr(init_value);
-        res += run_bench_boost_shared_ptr(init_value);
     });
 
     runner.join();
