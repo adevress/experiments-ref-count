@@ -10,11 +10,12 @@ set(CMAKE_BUILD_TYPE "RelWithDebInfo")
 endif()
 
 include(FindThreads)
+find_package(Boost REQUIRED COMPONENTS atomic)
 
 # Add your executable
 add_executable(experiments-ref-count src/main.cpp)
 
 # Link nanobench to your executable
-target_link_libraries(experiments-ref-count PRIVATE nanobench Threads::Threads fmt)
+target_link_libraries(experiments-ref-count PRIVATE nanobench Threads::Threads fmt Boost::atomic)
 
 add_subdirectory(external)
