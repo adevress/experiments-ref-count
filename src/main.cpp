@@ -45,51 +45,21 @@ std::size_t  run_bench_raw_ptr(under_type val){
 
 }
 
-std::size_t run_bench_shared_ptr(under_type val){
+template<typename ptrType>
+std::size_t run_bench_shptr(under_type val, const std::string & name){
     std::size_t res = 0;
     ankerl::nanobench::Bench bench;
 
     {
         
-        std::vector<std::shared_ptr<under_type>> ptr_space;
+        std::vector<ptrType> ptr_space;
         ptr_space.resize(iterations);
 
         bench
             .minEpochIterations(20)
-            .run("atomic shared ptr", [&]() {
+            .run(name, [&]() {
 
-            std::shared_ptr<int> ptr(new int{val++});                 
-
-            for (std::size_t i = 0; i < iterations; ++i) {
-                ptr_space[i] = ptr;              
-            }
-
-        });
-
-        for(const auto & v : ptr_space){
-            res += *v;            
-        }    
-
-    }
-
-    return res;
-}
-
-
-std::size_t run_bench_boost_shared_ptr(under_type val){
-    std::size_t res = 0;
-    ankerl::nanobench::Bench bench;
-
-    {
-        
-        std::vector<boost::shared_ptr<under_type>> ptr_space;
-        ptr_space.resize(iterations);
-
-        bench
-            .minEpochIterations(100)
-            .run("atomic boost shared ptr", [&]() {
-
-                boost::shared_ptr<int> ptr(new int{val++});                
+            ptrType ptr(new int{val++});                 
 
             for (std::size_t i = 0; i < iterations; ++i) {
                 ptr_space[i] = ptr;              
@@ -105,38 +75,6 @@ std::size_t run_bench_boost_shared_ptr(under_type val){
 
     return res;
 }
-
-std::size_t run_bench_boost_local_ptr(under_type val){
-    std::size_t res = 0;
-    ankerl::nanobench::Bench bench;
-
-    {
-        
-        std::vector<boost::local_shared_ptr<under_type>> ptr_space;
-        ptr_space.resize(iterations);
-
-        bench
-            .minEpochIterations(20)
-            .run("non-atomic boost shared ptr", [&]() {
-
-                boost::local_shared_ptr<int> ptr(new int{val++});                
-
-            for (std::size_t i = 0; i < iterations; ++i) {
-                ptr_space[i] = ptr;              
-            }
-
-        });
-
-        for(const auto & v : ptr_space){
-            res += *v;            
-        }    
-
-    }
-
-    return res;
-}
-
-
 
 int main() {
     std::size_t res = 0;
@@ -147,9 +85,9 @@ int main() {
     // avoid any side effect related to the stripping 
     // of atomic ops in single threaded programs
     std::thread runner([&res, init_value](){
-        res += run_bench_boost_shared_ptr(init_value);        
-        res += run_bench_shared_ptr(init_value);
-        res += run_bench_boost_local_ptr(init_value);
+        res += run_bench_shptr<std::shared_ptr<under_type>>(init_value, "Copy atomic std shared_ptr");        
+        res += run_bench_shptr<boost::shared_ptr<under_type>>(init_value, "Copy atomic boost shared_ptr");
+        res += run_bench_shptr<boost::local_shared_ptr<under_type>>(init_value, "Copy non-atomic boost shared_ptr");        
         res += run_bench_raw_ptr(init_value);      
     });
 
