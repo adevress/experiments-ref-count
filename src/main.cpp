@@ -1,3 +1,4 @@
+#include <atomic>
 #include <cassert>
 #include <memory>
 #include <stdexcept>
@@ -47,7 +48,7 @@ template <typename ptrType> std::size_t run_bench_shptr(under_type val, const st
     std::vector<ptrType> ptr_space;
     ptr_space.resize(iterations);
 
-    bench.minEpochIterations(20).run(name, [&]() {
+    bench.minEpochIterations(200).run(name, [&]() {
       ptrType ptr(new int{val++});
 
       for (std::size_t i = 0; i < iterations; ++i) {
@@ -74,8 +75,12 @@ int main() {
   std::thread runner([&res, init_value]() {
     res += run_bench_shptr<std::shared_ptr<under_type>>(init_value, "Copy atomic std shared_ptr");
     res += run_bench_shptr<boost::shared_ptr<under_type>>(init_value, "Copy atomic boost shared_ptr");
+    res += run_bench_shptr<Durc<under_type, std::atomic<std::uint32_t>>>(init_value,
+                                                                         "Copy atomic Dummy unsafe reference counter");
     res += run_bench_shptr<boost::local_shared_ptr<under_type>>(init_value, "Copy non-atomic boost shared_ptr");
-    res += run_bench_shptr<Durc<under_type>>(init_value, "Copy non-atomic Dummy unsafe shared ptr shared_ptr");
+    res += run_bench_shptr<Durc<under_type>>(init_value, "Copy non-atomic Dummy unsafe reference counter (uint32)");
+    res += run_bench_shptr<Durc<under_type, std::uint64_t>>(init_value,
+                                                            "Copy non-atomic Dummy unsafe reference counter (uint64)");
     res += run_bench_raw_ptr(init_value);
   });
 
