@@ -8,6 +8,8 @@
 
 #include <fmt/format.h>
 
+#include "rc.hpp"
+
 #include "nanobench.h"
 
 
@@ -86,9 +88,10 @@ int main() {
     // of atomic ops in single threaded programs
     std::thread runner([&res, init_value](){
         res += run_bench_shptr<std::shared_ptr<under_type>>(init_value, "Copy atomic std shared_ptr");        
-        res += run_bench_shptr<boost::shared_ptr<under_type>>(init_value, "Copy atomic boost shared_ptr");
-        res += run_bench_shptr<boost::local_shared_ptr<under_type>>(init_value, "Copy non-atomic boost shared_ptr");        
-        res += run_bench_raw_ptr(init_value);      
+       res += run_bench_shptr<boost::shared_ptr<under_type>>(init_value, "Copy atomic boost shared_ptr");
+       res += run_bench_shptr<boost::local_shared_ptr<under_type>>(init_value, "Copy non-atomic boost shared_ptr");      
+        res += run_bench_shptr<Durc<under_type>>(init_value, "Copy non-atomic Dummy unsafe shared ptr shared_ptr");             
+       res += run_bench_raw_ptr(init_value);      
     });
 
     runner.join();
