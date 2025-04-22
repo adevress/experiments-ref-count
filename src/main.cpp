@@ -13,7 +13,7 @@
 
 #include "nanobench.h"
 
-using under_type = int;
+using under_type = unsigned int;
 constexpr std::size_t iterations = 1000000;
 
 std::size_t run_bench_raw_ptr(under_type val) {
@@ -25,7 +25,7 @@ std::size_t run_bench_raw_ptr(under_type val) {
     ptr_space.resize(iterations);
 
     bench.minEpochIterations(100).run("raw ptr", [&]() {
-      int* ptr = new under_type{val++};
+      under_type* ptr = new under_type{val++};
 
       for (std::size_t i = 0; i < iterations; ++i) {
         ptr_space[i] = ptr;
@@ -39,7 +39,7 @@ std::size_t run_bench_raw_ptr(under_type val) {
   return res;
 }
 
-template <typename ptrType> std::size_t run_bench_shptr(under_type val, const std::string& name) {
+template <typename ptrType> std::size_t bench_copy_rc(under_type val, const std::string& name) {
   std::size_t res = 0;
   ankerl::nanobench::Bench bench;
 
@@ -49,7 +49,7 @@ template <typename ptrType> std::size_t run_bench_shptr(under_type val, const st
     ptr_space.resize(iterations);
 
     bench.minEpochIterations(200).run(name, [&]() {
-      ptrType ptr(new int{val++});
+      ptrType ptr(new under_type{val++});
 
       for (std::size_t i = 0; i < iterations; ++i) {
         ptr_space[i] = ptr;
@@ -64,6 +64,42 @@ template <typename ptrType> std::size_t run_bench_shptr(under_type val, const st
   return res;
 }
 
+
+template <typename ptrType> std::size_t bench_copy_defer_rc(under_type val, const std::string& name) {
+  std::size_t res = 0;
+  ankerl::nanobench::Bench bench;
+
+  {
+
+    std::vector<ptrType> ptr_space;
+    ptr_space.resize(iterations);
+
+    bench.minEpochIterations(100).run(name, [&]() {
+      ptrType ptr(new under_type{val++});
+
+      for (std::size_t i = 0; i < iterations; ++i) {
+        ptr_space[i] = ptr;
+      }
+
+      for (std::size_t i = 0; i < iterations; ++i) {
+        *(ptr_space[i]) = (i + *(ptr_space[i]))/2;
+      }      
+    });
+
+    for (const auto& v : ptr_space) {
+      res += *v;
+    }
+  }
+
+  return res;
+}
+
+
+
+
+
+
+
 int main() {
   std::size_t res = 0;
   ankerl::nanobench::Rng rng;
@@ -73,15 +109,23 @@ int main() {
   // avoid any side effect related to the stripping
   // of atomic ops in single threaded programs
   std::thread runner([&res, init_value]() {
-    res += run_bench_shptr<std::shared_ptr<under_type>>(init_value, "Copy atomic std shared_ptr");
-    res += run_bench_shptr<boost::shared_ptr<under_type>>(init_value, "Copy atomic boost shared_ptr");
-    res += run_bench_shptr<Durc<under_type, std::atomic<std::uint32_t>>>(init_value,
+
+    // Just copy single-threaded
+    res += run_bench_raw_ptr(init_value);    
+    res += bench_copy_rc<std::shared_ptr<under_type>>(init_value, "Copy atomic std shared_ptr");
+    res += bench_copy_rc<boost::shared_ptr<under_type>>(init_value, "Copy atomic boost shared_ptr");
+    res += bench_copy_rc<Durc<under_type, std::atomic<std::uint32_t>>>(init_value,
                                                                          "Copy atomic Dummy unsafe reference counter");
-    res += run_bench_shptr<boost::local_shared_ptr<under_type>>(init_value, "Copy non-atomic boost shared_ptr");
-    res += run_bench_shptr<Durc<under_type>>(init_value, "Copy non-atomic Dummy unsafe reference counter (uint32)");
-    res += run_bench_shptr<Durc<under_type, std::uint64_t>>(init_value,
+    res += bench_copy_rc<boost::local_shared_ptr<under_type>>(init_value, "Copy non-atomic boost shared_ptr");
+    res += bench_copy_rc<Durc<under_type>>(init_value, "Copy non-atomic Dummy unsafe reference counter (uint32)");
+    res += bench_copy_rc<Durc<under_type, std::uint64_t>>(init_value,
                                                             "Copy non-atomic Dummy unsafe reference counter (uint64)");
-    res += run_bench_raw_ptr(init_value);
+
+
+    // Just copy and defer single-threaded
+    res += bench_copy_defer_rc<std::shared_ptr<under_type>>(init_value, "Copy / Defer atomic std shared_ptr");
+    res += bench_copy_defer_rc<boost::shared_ptr<under_type>>(init_value, "Copy / Defer atomic boost shared_ptr");
+    res += bench_copy_defer_rc<Durc<under_type>>(init_value, "Copy / Defer Dummy unsafe reference counter");            
   });
 
   runner.join();
