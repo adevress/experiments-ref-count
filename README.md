@@ -1,8 +1,7 @@
-# In Brief
+# RC experiments
 
-Toy experiment about reference counting and their implementations.
 
-We compare here different reference counting implementation and their performance in single-threaded and  multi-threaded environment.
+Disclaimer: These benches are not representative of the performance of RC or ARC in the realistic use cases. They are first and foremost an evaluation of the cost of copying / inc for different implementations.
 
 
 # Compile from source
