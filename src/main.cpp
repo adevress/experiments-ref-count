@@ -1,6 +1,7 @@
 #include <atomic>
 #include <cassert>
 #include <memory>
+#include <numeric>
 #include <stdexcept>
 #include <thread>
 
@@ -14,7 +15,19 @@
 #include "nanobench.h"
 
 using under_type = unsigned int;
-constexpr std::size_t iterations = 1000000;
+constexpr std::size_t iterations = 100000;
+
+// create a randomized vector of index
+// to trick a little to aggressive optimizer
+std::vector<std::size_t> create_random_mapper(std::size_t total_size) {
+  std::vector<std::size_t> result{};
+  ankerl::nanobench::Rng rng;
+
+  result.resize(total_size);
+  std::iota(result.begin(), result.end(), 0);
+  std::shuffle(result.begin(), result.end(), rng);
+  return result;
+}
 
 std::size_t run_bench_raw_ptr(under_type val) {
   std::size_t res = 0;
@@ -23,12 +36,13 @@ std::size_t run_bench_raw_ptr(under_type val) {
   {
     std::vector<under_type*> ptr_space;
     ptr_space.resize(iterations);
+    const auto index_vector = create_random_mapper(iterations);
 
     bench.minEpochIterations(100).run("raw ptr", [&]() {
       under_type* ptr = new under_type{val++};
 
       for (std::size_t i = 0; i < iterations; ++i) {
-        ptr_space[i] = ptr;
+        ptr_space[index_vector[i]] = ptr;
       }
     });
 
@@ -47,12 +61,13 @@ template <typename ptrType> std::size_t bench_copy_rc(under_type val, const std:
 
     std::vector<ptrType> ptr_space;
     ptr_space.resize(iterations);
+    const auto index_vector = create_random_mapper(iterations);
 
-    bench.minEpochIterations(200).run(name, [&]() {
+    bench.minEpochIterations(100).run(name, [&]() {
       ptrType ptr(new under_type{val++});
 
       for (std::size_t i = 0; i < iterations; ++i) {
-        ptr_space[i] = ptr;
+        ptr_space[index_vector[i]] = ptr;
       }
     });
 
@@ -63,7 +78,6 @@ template <typename ptrType> std::size_t bench_copy_rc(under_type val, const std:
 
   return res;
 }
-
 
 template <typename ptrType> std::size_t bench_copy_defer_rc(under_type val, const std::string& name) {
   std::size_t res = 0;
@@ -73,17 +87,18 @@ template <typename ptrType> std::size_t bench_copy_defer_rc(under_type val, cons
 
     std::vector<ptrType> ptr_space;
     ptr_space.resize(iterations);
+    const auto index_vector = create_random_mapper(iterations);
 
     bench.minEpochIterations(100).run(name, [&]() {
       ptrType ptr(new under_type{val++});
 
       for (std::size_t i = 0; i < iterations; ++i) {
-        ptr_space[i] = ptr;
+        ptr_space[index_vector[i]] = ptr;
       }
 
       for (std::size_t i = 0; i < iterations; ++i) {
-        *(ptr_space[i]) = (i + *(ptr_space[i]))/2;
-      }      
+        *(ptr_space[i]) = (i + *(ptr_space[i])) / 2;
+      }
     });
 
     for (const auto& v : ptr_space) {
@@ -93,12 +108,6 @@ template <typename ptrType> std::size_t bench_copy_defer_rc(under_type val, cons
 
   return res;
 }
-
-
-
-
-
-
 
 int main() {
   std::size_t res = 0;
@@ -109,23 +118,21 @@ int main() {
   // avoid any side effect related to the stripping
   // of atomic ops in single threaded programs
   std::thread runner([&res, init_value]() {
-
     // Just copy single-threaded
-    res += run_bench_raw_ptr(init_value);    
+    res += run_bench_raw_ptr(init_value);
     res += bench_copy_rc<std::shared_ptr<under_type>>(init_value, "Copy atomic std shared_ptr");
     res += bench_copy_rc<boost::shared_ptr<under_type>>(init_value, "Copy atomic boost shared_ptr");
     res += bench_copy_rc<Durc<under_type, std::atomic<std::uint32_t>>>(init_value,
-                                                                         "Copy atomic Dummy unsafe reference counter");
+                                                                       "Copy atomic Dummy unsafe reference counter");
     res += bench_copy_rc<boost::local_shared_ptr<under_type>>(init_value, "Copy non-atomic boost shared_ptr");
     res += bench_copy_rc<Durc<under_type>>(init_value, "Copy non-atomic Dummy unsafe reference counter (uint32)");
     res += bench_copy_rc<Durc<under_type, std::uint64_t>>(init_value,
-                                                            "Copy non-atomic Dummy unsafe reference counter (uint64)");
-
+                                                          "Copy non-atomic Dummy unsafe reference counter (uint64)");
 
     // Just copy and defer single-threaded
     res += bench_copy_defer_rc<std::shared_ptr<under_type>>(init_value, "Copy / Defer atomic std shared_ptr");
     res += bench_copy_defer_rc<boost::shared_ptr<under_type>>(init_value, "Copy / Defer atomic boost shared_ptr");
-    res += bench_copy_defer_rc<Durc<under_type>>(init_value, "Copy / Defer Dummy unsafe reference counter");            
+    res += bench_copy_defer_rc<Durc<under_type>>(init_value, "Copy / Defer Dummy unsafe reference counter");
   });
 
   runner.join();
