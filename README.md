@@ -22,6 +22,7 @@ Disclaimer: These benches are not representative of the performance of RC or ARC
 # How to run
 
 ./experiments-ref-count
+|               ns/op |                op/s |    err% |          ins/op |          cyc/op |    IPC |         bra/op |   miss% |     total | benchmark
 |--------------------:|--------------------:|--------:|----------------:|----------------:|-------:|---------------:|--------:|----------:|:----------
 |           77,116.02 |           12,967.47 |    4.8% |      500,241.20 |      342,800.07 |  1.459 |     100,050.09 |    0.0% |      0.09 | `raw ptr`
 |          626,526.23 |            1,596.10 |    0.3% |    3,200,697.59 |    2,924,799.44 |  1.094 |     800,147.69 |    0.0% |      0.75 | `Copy atomic std shared_ptr`
